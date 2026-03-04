@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 #![doc = include_str!("../README.md")]
-#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 mod floatformat;
@@ -55,7 +54,7 @@ impl ObjectKey {
             if let Some(kind) = e.io_error_kind() {
                 Error::new(kind, "I/O error")
             } else {
-                Error::new(ErrorKind::Other, e.to_string())
+                Error::other(e.to_string())
             }
         })
     }
@@ -160,10 +159,7 @@ impl CanonicalFormatter {
     /// Returns a mutable reference to the top of the object stack.
     fn obj_mut(&mut self) -> Result<&mut Object> {
         self.object_stack.last_mut().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Other,
-                "serde_json called an object method without calling begin_object first",
-            )
+            Error::other("serde_json called an object method without calling begin_object first")
         })
     }
 }
@@ -292,8 +288,7 @@ impl Formatter for CanonicalFormatter {
 
     fn end_object<W: Write + ?Sized>(&mut self, writer: &mut W) -> Result<()> {
         let object = self.object_stack.pop().ok_or_else(|| {
-            Error::new(
-                ErrorKind::Other,
+            Error::other(
                 "serde_json called Formatter::end_object object method
                  without calling begin_object first",
             )
