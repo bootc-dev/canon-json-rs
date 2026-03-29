@@ -16,8 +16,8 @@ thiserror = "2.0.12"
 [dev-dependencies]
 proptest = "1.7.0"
 similar-asserts = "1.7.0"
-cap-std = "3.4.4"
-sha2 = "0.10.9"
+cap-std = "4.0.0"
+sha2 = "0.11.0"
 # For cross-integration testing
 olpc-cjson = "0.1"
 cjson = "0.1.2"
