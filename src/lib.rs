@@ -679,7 +679,12 @@ mod tests {
             // testdata sha256sum are computed with a trailing \n
             sha256.update("\n");
             let filename = filename.trim_end_matches(".json");
-            let hash = format!("{:x}", sha256.finalize());
+            let digest = sha256.finalize();
+            let hash = digest.iter().fold(String::new(), |mut s, b| {
+                use std::fmt::Write;
+                write!(s, "{b:02x}").unwrap();
+                s
+            });
             assert_eq!(filename, hash);
             let json2: serde_json::Value = serde_json::from_slice(&enc)?;
 
