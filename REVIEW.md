@@ -26,9 +26,10 @@ easy to generate a *lot* of code for unit tests unnecessarily).
 ### Separating Parsing from I/O
 
 A recurring theme is structuring code for testability. Split parsers from data
-reading: have the parser accept a `&str`, then have a separate function that
-reads from disk and calls the parser. This makes unit testing straightforward
-without filesystem dependencies.
+reading: have the parser accept the raw data (e.g. a string), then have a
+separate function that reads from disk and calls the parser. This makes unit
+testing straightforward without filesystem dependencies. See the
+language-specific review guides for concrete examples.
 
 ### Test Assertions
 
@@ -48,9 +49,7 @@ or `sed`.
 
 Try to avoid having shell script longer than 50 lines. This commonly occurs
 in build system and tests. For the build system, usually there's higher
-level ways to structure things (Justfile e.g.) and several of our projects
-use the `cargo xtask` pattern to put arbitrary "glue" code in Rust using
-the `xshell` crate to keep it easy to run external commands.
+level ways to structure things (Justfile e.g.).
 
 ### Constants and Magic Values
 
@@ -64,10 +63,10 @@ value was chosen.
 
 ### Don't ignore (swallow) errors
 
-Avoid the `if let Ok(v) = ... { }` in Rust, or `foo 2>/dev/null || true`
-pattern in shell script by default. Most errors should be propagated by
-default. If not, it's usually appropriate to at least log error messages
-at a `tracing::debug!` or equivalent level.
+Avoid swallowing errors (e.g. `foo 2>/dev/null || true` in shell script).
+Most errors should be propagated by default. If not, it's usually appropriate
+to at least log error messages at a debug level. See the language-specific
+review guides for concrete anti-patterns.
 
 Handle edge cases explicitly: missing data, malformed input, offline systems.
 Error messages should provide clear context for diagnosis.
@@ -90,24 +89,68 @@ follow your reasoning: "Especially grateful for breaking it up into individual
 commits so I can more easily follow your train of thought."
 
 Preparatory refactoring should be separate from behavioral changes. Each commit
-should tell a clear story and be reviewable independently. Commit messages should
-explain the "why" not just the "what," and use imperative mood ("Add feature"
-not "Added feature").
+should tell a clear story and be reviewable independently. Where applicable,
+create "prep" commits that could be merged separately from the behavioral change.
+
+### Commit Messages
+
+Write clear and descriptive commit messages using a `component: Summary`
+subject, such as `kernel: Add find API w/correct hyphen-dash equality, add docs`.
+Use imperative mood: "Add integration with..." not "Adds integration with...".
+
+The body of the commit should start with at least one sentence (or paragraph)
+describing **why** the change is being made, even for something apparently
+trivial. For example a "refactor" commit might have a "why" rationale of just
+"Prep for handling X later." A big commit introducing a feature may seem
+self-explanatory, but there is often ambient context like "A large-scale Debian
+user wanted this" that provides helpful grounding in the motivation.
+
+If there's a linked tracking issue, often that will contain a more extensive
+rationale that doesn't need to be duplicated entirely in the commit message,
+but do ensure the commit message has something useful on its own for a rationale.
+
+Keep it natural and concise. A few sentences of prose explaining the design
+intent or the high-level data flow is often good enough. If there's a
+non-obvious consequence of the change, call it out briefly (e.g. "Note the
+manifest becomes part of the GC root") rather than explaining the full
+mechanism. Think about what a reviewer needs to know that may not be obvious
+from a skim of the code.
+
+Do not restate obvious parts of what is already visible in the commit diff:
+
+- "Changed function X to call Y"
+- Generic `Changes:` sections with bulleted lists of implementation details
+- "Files changed" sections — completely redundant with git
+
+Implementation details belong in the code documentation. The goal of the
+commit message is like a "cover letter" for the change, with a primary
+rationale of why the change is being made, alongside a concise summary of
+its implementation.
+
+Another thing that can go in the commit message is brief descriptions
+of alternative approaches that were considered and discarded.
+
+Closes: tags should generally come at the end of the commit message.
 
 ### PR Descriptions
 
-PRs should link to the issues they address using `Closes:` or `Fixes:` with
-full URLs. One reviewer noted: "I edited this issue just now to have
-`Closes: <URL>` but let's try to be sure we're doing that kind of thing in
-general in the future."
+Generally, just restate the commit message.
 
-Document known limitations and caveats explicitly. When approaches have tradeoffs
-or don't fully solve a problem, say so. For complex investigations, use collapsible
-`<details>` sections to include debugging notes without cluttering the main
-description.
+Where it makes sense, it is OK to include additional details though.
 
-Think about broader implications: "But we'll have this problem across all repos
-right?" Consider how your change affects the wider ecosystem.
+### Further changes on top of existing commits
+
+If you have followup fixes (whether that's part of a local loop or
+as part of addressing PR review), it is generally encouraged to *squash*
+the fixes into the prior commit. Do not create generically-named "Update <file>" commits
+or "Address review feedback" or "Fix cargo fmt" commits.
+
+This applies equally when an AI tool (e.g. Gemini, Copilot) suggests a
+change via a review comment — applying the suggestion creates a new commit
+with an auto-generated subject. That commit should be squashed before the
+PR is merged.
+
+In other words either a commit "stands alone" with its own rationale or it doesn't.
 
 ### Keeping PRs Current
 
@@ -122,7 +165,6 @@ rather than burning reviewer cycles.
 Do not add `Signed-off-by` lines automatically—these require explicit human
 action after review. If code was AI-assisted, include an `Assisted-by:` trailer
 indicating the tool and model used.
-
 
 ## Architecture and Design
 
@@ -149,21 +191,17 @@ functionality, ensure equivalent coverage exists.
 
 When multiple contributors co-author a PR, bring in an independent reviewer.
 
-## Rust-Specific Guidance
+## Dependencies
 
-Prefer rustix over `libc`. All `unsafe` code must be very carefully
-justified.
+New dependencies should be justified. Consider alternatives: "I'm curious if
+you did any comparative analysis at all with alternatives?"
 
-### Dependencies
+Prefer well-maintained libraries with active communities. Glance at existing
+reverse dependencies to gauge adoption (e.g. on crates.io for Rust, or
+pkg.go.dev for Go). Consider project-level dependency policies (e.g.
+`cargo deny` for Rust).
 
-New dependencies should be justified. Glance at existing reverse dependencies
-on crates.io to see if a crate is widely used. Consider alternatives: "I'm
-curious if you did any comparative analysis at all with alternatives?"
-
-Prefer well-maintained crates with active communities. Consider `cargo deny`
-policies when adding dependencies.
-
-### API Design
+## API Design
 
 When adding new commands or options, think about machine-readable output early.
 JSON is generally preferred for that.
@@ -171,3 +209,10 @@ JSON is generally preferred for that.
 Keep helper functions in appropriate modules. Move command output formatting
 close to the CLI layer, keeping core logic functions focused on their primary
 purpose.
+
+## Language-Specific Guidance
+
+The following guides cover language-specific review expectations:
+
+- [REVIEW_RUST.md](REVIEW_RUST.md) — Rust projects
+- [REVIEW_GOLANG.md](REVIEW_GOLANG.md) — Go projects
